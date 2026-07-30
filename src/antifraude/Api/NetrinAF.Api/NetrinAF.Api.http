@@ -1,0 +1,6 @@
+@NetrinAF.Api_HostAddress = http://localhost:5090
+
+GET {{NetrinAF.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

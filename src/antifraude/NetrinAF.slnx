@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/Api/">
+    <Project Path="Api/NetrinAF.Api/NetrinAF.Api.csproj" Id="7716c9f9-8452-4b85-baf6-057c20a2f74e" />
+  </Folder>
+  <Folder Name="/Application/" />
+  <Folder Name="/Domain/">
+    <Project Path="Domain/NetrinAF.Domain/NetrinAF.Domain.csproj" />
+  </Folder>
+  <Folder Name="/Infrastructure/">
+    <Project Path="Infrastructure/NetrinAF.Infra.Bus/NetrinAF.Infra.Bus.csproj" Id="23df7735-7378-4947-b3e5-f2db178a2ef8" />
+  </Folder>
+</Solution>
