@@ -1,6 +1,7 @@
 using NetrinAF.Api.Configurations;
 using NetrinAF.Api.Registers;
 using NetrinAF.Application.Middleware.Correlation;
+using NetrinAF.Application.Middleware.Idempotency;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,10 +10,11 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddApplicationServices();
-builder.Services.AddInfraServices();
+//builder.Services.AddInfraServices();
 builder.AddHealthCheckConfiguration();
 builder.AddSerilogConfiguration();
 builder.AddWebApiConfiguration();
+builder.AddSwaggerConfiguration();
 
 var app = builder.Build();
 
@@ -24,9 +26,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseMiddleware<CorrelationIdMiddleware>();
-app.UseAuthorization();
+app.UseMiddleware<IdempotencyKeyMiddleware>();
 app.UseWebApplicationConfiguration();
 app.UseHealthCheckConfiguration();
-
+app.UseSwaggerConfiguration(app.Environment, app.DescribeApiVersions());
 app.Run();
 

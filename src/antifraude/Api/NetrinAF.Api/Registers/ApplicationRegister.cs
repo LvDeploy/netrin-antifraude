@@ -1,5 +1,7 @@
 ﻿using NetrinAF.Application.Abstractions.Behavior;
 using NetrinAF.Application.Abstractions.Handler;
+using NetrinAF.Application.Middleware.Correlation;
+using NetrinAF.Application.Middleware.Idempotency;
 using System.Reflection;
 
 namespace NetrinAF.Api.Registers
@@ -8,6 +10,9 @@ namespace NetrinAF.Api.Registers
     {
         internal static void AddApplicationServices(this IServiceCollection services)
         {
+            services.AddScoped<CorrelationId>();
+            services.AddScoped<IdempotencyKey>();
+
             Assembly assemblyApplication = AppDomain.CurrentDomain.GetAssemblies()
                         .FirstOrDefault(a => a.GetName().Name.Equals("NetrinAF.Application", StringComparison.OrdinalIgnoreCase))!;
 
@@ -21,7 +26,7 @@ namespace NetrinAF.Api.Registers
             );
             //Attached with non-generic overloads
             services.Decorate(typeof(IQueryHandler<,>), typeof(LoggingDecorator.QueryHandler<,>));
-            services.Decorate(typeof(ICommandHandler<,>), typeof(LoggingDecorator.CommandHandler<,>));
+            //services.Decorate(typeof(ICommandHandler<,>), typeof(LoggingDecorator.CommandHandler<,>));
             services.Decorate(typeof(ICommandHandler<>), typeof(LoggingDecorator.CommandHandler<>));
 
         }

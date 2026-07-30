@@ -10,7 +10,7 @@ namespace NetrinAF.Api.Endpoints.Transaction
     {
         public void MapEndpoint(IEndpointRouteBuilder endpointRouteBuilder)
         {
-            endpointRouteBuilder.MapPost("/",
+            endpointRouteBuilder.MapPost("transactions",
                 async ([FromBody] CreateTransactionCommand command,
                 CorrelationId correlationId,
                 ICommandHandler<CreateTransactionCommand> handler,
