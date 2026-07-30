@@ -1,10 +1,18 @@
+using NetrinAF.Api.Configurations;
+using NetrinAF.Api.Registers;
+using NetrinAF.Application.Middleware.Correlation;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
-builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddApplicationServices();
+builder.Services.AddInfraServices();
+builder.AddHealthCheckConfiguration();
+builder.AddSerilogConfiguration();
+builder.AddWebApiConfiguration();
 
 var app = builder.Build();
 
@@ -15,9 +23,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
+app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseAuthorization();
-
-app.MapControllers();
+app.UseWebApplicationConfiguration();
+app.UseHealthCheckConfiguration();
 
 app.Run();
+

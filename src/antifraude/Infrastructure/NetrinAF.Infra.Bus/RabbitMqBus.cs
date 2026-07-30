@@ -2,7 +2,6 @@
 using NetrinAF.Domain.Events;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
-using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 
@@ -95,7 +94,7 @@ namespace NetrinAF.Infra.Bus
                 await ProcessEvent(eventName, message);
 
                 // If successful:
-                 channel.BasicAck(deliveryTag: @event.DeliveryTag, multiple: false);
+                channel.BasicAck(deliveryTag: @event.DeliveryTag, multiple: false);
             }
             catch (Exception ex)
             {
@@ -111,18 +110,19 @@ namespace NetrinAF.Infra.Bus
             if (_handlers.ContainsKey(eventName))
             {
                 var subcriptions = _handlers[eventName];
-                foreach (var item in subcriptions) 
+                foreach (var item in subcriptions)
                 {
                     var handler = Activator.CreateInstance(item);
-                    if(item != null)
+                    if (item != null)
                     {
                         var handlerType = _eventTypes.SingleOrDefault(x => x.Name == eventName);
                         var eventData = JsonSerializer.Deserialize(message, handlerType!);
                         var receiver = typeof(IEventHandler<>).MakeGenericType(handlerType!);
                         await (Task)receiver.GetMethod("Handle")!.Invoke(handler, new object[] { eventData! })!;
                     }
-                
+
                 }
+            }
         }
     }
 }

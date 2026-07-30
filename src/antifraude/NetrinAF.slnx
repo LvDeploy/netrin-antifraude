@@ -2,11 +2,14 @@
   <Folder Name="/Api/">
     <Project Path="Api/NetrinAF.Api/NetrinAF.Api.csproj" Id="7716c9f9-8452-4b85-baf6-057c20a2f74e" />
   </Folder>
-  <Folder Name="/Application/" />
+  <Folder Name="/Application/">
+    <Project Path="Application/NetrinAF.Application/NetrinAF.Application.csproj" Id="e3b0ff90-d9f1-43b2-a66e-2aa0e7ceb2e5" />
+  </Folder>
   <Folder Name="/Domain/">
     <Project Path="Domain/NetrinAF.Domain/NetrinAF.Domain.csproj" />
   </Folder>
   <Folder Name="/Infrastructure/">
     <Project Path="Infrastructure/NetrinAF.Infra.Bus/NetrinAF.Infra.Bus.csproj" Id="23df7735-7378-4947-b3e5-f2db178a2ef8" />
+    <Project Path="Infrastructure/NetrinAF.Infra.SQLDatabase/NetrinAF.Infra.SQLDatabase.csproj" Id="afac9729-b309-4b2f-b3d0-9697781fbe9c" />
   </Folder>
 </Solution>
