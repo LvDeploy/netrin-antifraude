@@ -1,4 +1,5 @@
-﻿using NetrinAF.Api.Endpoints;
+﻿using Microsoft.Data.SqlClient;
+using NetrinAF.Api.Endpoints;
 using NetrinAF.Application.Abstractions.Response;
 using Polly;
 using Polly.Fallback;
@@ -23,7 +24,7 @@ namespace NetrinAF.Api.Configurations
                         Delay = TimeSpan.FromSeconds(2),
                         BackoffType = DelayBackoffType.Exponential,
                         ShouldHandle = new PredicateBuilder<BaseResponse<Guid>>()
-                               .Handle<Exception>(),
+                               .Handle<SqlException>(),
                         OnRetry = retryArguments =>
                         {
                             Console.WriteLine($"Current Attempt {retryArguments.AttemptNumber}, {retryArguments.Outcome}");

@@ -10,11 +10,14 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddApplicationServices(builder.Configuration["AppConfiguration:AppAssemblyName"]!);
-//builder.Services.AddInfraServices();
+builder.Services.AddInfraServices();
 builder.AddHealthCheckConfiguration();
 builder.AddSerilogConfiguration();
 builder.AddWebApiConfiguration();
 builder.AddSwaggerConfiguration();
+builder.AddRabbitMqConfiguration();
+builder.AddEFContextConfiguration();
+builder.AddResiliencePipelineConfiguration();
 
 var app = builder.Build();
 

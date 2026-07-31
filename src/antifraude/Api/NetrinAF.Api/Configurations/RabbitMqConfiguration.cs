@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using NetrinAF.Domain.Bus;
 using NetrinAF.Infra.Bus;
-using NetrinAF.Infra.SQLDatabase.Context;
 using RabbitMQ.Client;
 
 namespace NetrinAF.Api.Configurations
@@ -16,12 +16,14 @@ namespace NetrinAF.Api.Configurations
             {
                 return new ConnectionFactory
                 {
-                    HostName = builder.Configuration["RabbitMqSettings:DefaultHost"] ?? "localhost",
-                    UserName = builder.Configuration["RabbitMqSettings:UserName"] ?? "guest",
-                    Password = builder.Configuration["RabbitMqSettings:Password"] ?? "guest",
+                    HostName = options.DefaultHost ?? "localhost",
+                    UserName = options.UserName ?? "guest",
+                    Password = options.Password ?? "guest",
                     DispatchConsumersAsync = true
                 };
             });
+
+            builder.Services.AddSingleton<IEventBus, RabbitMqBus>();
         }
     }
 }
