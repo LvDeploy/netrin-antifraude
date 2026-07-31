@@ -1,4 +1,4 @@
-﻿using NetrinAF.Domain.Events;
+﻿using NetrinAF.Domain.Events.Base;
 using System;
 using System.Collections.Generic;
 using System.Text;

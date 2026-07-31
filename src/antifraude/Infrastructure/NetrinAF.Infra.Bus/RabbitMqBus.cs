@@ -1,7 +1,8 @@
 ﻿using NetrinAF.Domain.Bus;
-using NetrinAF.Domain.Events;
+using NetrinAF.Domain.Events.Base;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using RabbitMQ.Client.Exceptions;
 using System.Text;
 using System.Text.Json;
 
@@ -11,27 +12,62 @@ namespace NetrinAF.Infra.Bus
     {
         private readonly Dictionary<string, List<Type>> _handlers;
         private readonly List<Type> _eventTypes;
+        private readonly RabbitMqSettings _settings;
+        private readonly IConnectionFactory _factory;
         private IModel channel;
-        public RabbitMqBus()
+        public RabbitMqBus(RabbitMqSettings settings, IConnectionFactory factory)
         {
             _eventTypes = new List<Type>();
             _handlers = new Dictionary<string, List<Type>>();
+            _settings = settings;
+            _factory = factory;
+            Setup();
         }
+
+        public void Setup()
+        {
+            using var connection = _factory.CreateConnection();
+            using var channel = connection.CreateModel();
+
+            var mainQueueArgs = new Dictionary<string, object>
+            {
+                { "x-dead-letter-exchange", _settings.MainExchange! },
+                { "x-dead-letter-routing-key", _settings.DlqRoutingKey! }
+            };
+            string mainQueueName = "transaction.processing-queue";
+
+            if (!DoesExchangeExist(connection, _settings.MainExchange!))
+            {
+                channel.ExchangeDeclare(_settings.MainExchange!, ExchangeType.Direct);
+            }
+
+            if (!DoesQueueExist(connection, _settings.DlqName!))
+            {
+                channel.QueueDeclare(_settings.DlqName!, durable: true, exclusive: false, autoDelete: false);
+                channel.QueueBind(_settings.DlqName!, _settings.MainExchange!, _settings.DlqRoutingKey!);
+            }
+            if (!DoesQueueExist(connection, mainQueueName))
+            {
+                channel.QueueDeclare(
+                    queue: mainQueueName,
+                    durable: true,
+                    exclusive: false,
+                    autoDelete: false,
+                    arguments: mainQueueArgs
+                );
+            }
+           
+        }
+
         public void Publish<T>(T @event)
         {
-            var factory = new ConnectionFactory() { HostName = "localhost" };
-            using var connection = factory.CreateConnection();
+            using var connection = _factory.CreateConnection();
             using var channel = connection.CreateModel();
             channel.QueueDeclare(@event!.GetType().Name, true, false, false, null);
             var message = JsonSerializer.Serialize(@event);
             var body = Encoding.UTF8.GetBytes(message);
 
-            channel.BasicPublish("", @event!.GetType().Name, null, body);
-        }
-
-        public Task SendCommand<T>(T command)
-        {
-            throw new NotImplementedException();
+            channel.BasicPublish(_settings.MainExchange, @event!.GetType().Name, null, body);
         }
 
         public void Subscribe<T, H>()
@@ -64,14 +100,8 @@ namespace NetrinAF.Infra.Bus
 
         private void StartBasicConsume<T>() where T : Event
         {
-            var factory = new ConnectionFactory()
-            {
-                HostName = "localhost",
-                DispatchConsumersAsync = true
-            };
-
-            var connection = factory.CreateConnection();
-            channel = connection.CreateModel();
+            using var connection = _factory.CreateConnection();
+            using var channel = connection.CreateModel();
 
             var eventName = typeof(T).Name;
             channel.QueueDeclare(eventName, true, false, false);
@@ -122,6 +152,34 @@ namespace NetrinAF.Infra.Bus
                     }
 
                 }
+            }
+        }
+
+        private bool DoesQueueExist(IConnection connection, string queueName)
+        {
+            using var channel = connection.CreateModel();
+            try
+            {
+                channel.QueueDeclarePassive(queueName);
+                return true;
+            }
+            catch (OperationInterruptedException ex) when (ex.ShutdownReason?.ReplyCode == 404)
+            {
+                return false;
+            }
+        }
+
+        private bool DoesExchangeExist(IConnection connection, string exchangeName)
+        {
+            using var channel = connection.CreateModel();
+            try
+            {
+                channel.ExchangeDeclarePassive(exchangeName);
+                return true;
+            }
+            catch (OperationInterruptedException ex) when (ex.ShutdownReason?.ReplyCode == 404)
+            {
+                return false;
             }
         }
     }
