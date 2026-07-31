@@ -56,7 +56,7 @@ namespace NetrinAF.Api.OpenApi
                 Name = IdempotencyHeaderName,
                 In = ParameterLocation.Header,
                 Required = true,
-                Description = "Idempotency key required for POST requests.",
+                Description = "Idempotency key is required.",
                 Schema = new OpenApiSchema
                 {
                     Type = JsonSchemaType.String
