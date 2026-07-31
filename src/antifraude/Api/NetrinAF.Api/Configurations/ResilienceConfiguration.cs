@@ -20,7 +20,8 @@ namespace NetrinAF.Api.Configurations
                     pipelineBuilder.AddRetry(new RetryStrategyOptions<BaseResponse<Guid>>
                     {
                         MaxRetryAttempts = 2,
-                        Delay = TimeSpan.Zero,
+                        Delay = TimeSpan.FromSeconds(2),
+                        BackoffType = DelayBackoffType.Exponential,
                         ShouldHandle = new PredicateBuilder<BaseResponse<Guid>>()
                                .Handle<Exception>(),
                         OnRetry = retryArguments =>
@@ -29,6 +30,7 @@ namespace NetrinAF.Api.Configurations
                             return ValueTask.CompletedTask;
                         }
                     });
+                    pipelineBuilder.AddTimeout(TimeSpan.FromSeconds(20));
                 });
         }
 

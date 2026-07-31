@@ -1,0 +1,361 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MIGRATIONS_DIR="${MIGRATIONS_DIR:-$SCRIPT_DIR/migrations}"
+APPSETTINGS="${APPSETTINGS:-$SCRIPT_DIR/antifraude/Api/NetrinAF.Api/appsettings.Development.json}"
+SQLCMD_CONTAINER="${SQLCMD_CONTAINER:-}"
+SQLCMD_CONTAINER_SQLCMD="${SQLCMD_CONTAINER_SQLCMD:-/opt/mssql-tools18/bin/sqlcmd}"
+COMMAND="${1:-up}"
+TARGET_MIGRATION="${2:-}"
+
+usage() {
+    echo "Usage: ./migrate [up|down|status] [migration-id]"
+    echo
+    echo "Commands:"
+    echo "  up                 Apply all pending *.up.sql migrations."
+    echo "  down               Roll back the latest applied migration."
+    echo "  down <id>          Roll back applied migrations down to <id>, inclusive."
+    echo "  status             Show applied/pending status for migration files."
+    echo
+    echo "Environment overrides:"
+    echo "  APPSETTINGS        Path to appsettings.Development.json."
+    echo "  MIGRATIONS_DIR     Path to the migrations folder."
+}
+
+trim() {
+    local value="$1"
+    value="${value#"${value%%[![:space:]]*}"}"
+    value="${value%"${value##*[![:space:]]}"}"
+    printf '%s' "$value"
+}
+
+connection_value() {
+    local wanted="$1"
+    local part name value normalized
+    IFS=';' read -ra parts <<< "$CONNECTION_STRING"
+
+    for part in "${parts[@]}"; do
+        if [[ "$part" != *=* ]]; then
+            continue
+        fi
+
+        name="$(trim "${part%%=*}")"
+        value="$(trim "${part#*=}")"
+        normalized="$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]' | tr -d ' ')"
+
+        if [[ "$normalized" == "$wanted" ]]; then
+            printf '%s\n' "$value"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+sql_literal() {
+    printf '%s' "$1" | sed "s/'/''/g"
+}
+
+run_master_query() {
+    run_sqlcmd "${SQLCMD_BASE[@]}" -d master -Q "$1"
+}
+
+run_db_query() {
+    run_sqlcmd "${SQLCMD_BASE[@]}" -d "$DATABASE" -Q "$1"
+}
+
+run_db_scalar() {
+    run_sqlcmd "${SQLCMD_BASE[@]}" -d "$DATABASE" -h -1 -W -Q "$1"
+}
+
+run_db_file() {
+    local file_path="$1"
+
+    if [[ -n "$SQLCMD_CONTAINER" ]]; then
+        local copy_source="$file_path"
+        local container_file="/tmp/$(basename "$file_path")"
+
+        if command -v cygpath >/dev/null 2>&1; then
+            copy_source="$(cygpath -w "$copy_source")"
+        fi
+
+        docker_cmd cp "$copy_source" "$SQLCMD_CONTAINER:$container_file"
+        run_sqlcmd "${SQLCMD_BASE[@]}" -d "$DATABASE" -i "$container_file"
+        return
+    fi
+
+    if command -v cygpath >/dev/null 2>&1; then
+        file_path="$(cygpath -w "$file_path")"
+    fi
+
+    run_sqlcmd "${SQLCMD_BASE[@]}" -d "$DATABASE" -i "$file_path"
+}
+
+ensure_sqlcmd() {
+    if [[ -z "$SQLCMD_CONTAINER" ]] && command -v docker >/dev/null 2>&1; then
+        if docker_cmd ps --format '{{.Names}}' 2>/dev/null | grep -qx 'sqlserver'; then
+            SQLCMD_CONTAINER="sqlserver"
+        fi
+    fi
+
+    if [[ -n "$SQLCMD_CONTAINER" ]]; then
+        if ! docker_cmd exec "$SQLCMD_CONTAINER" test -x "$SQLCMD_CONTAINER_SQLCMD"; then
+            echo "Could not find sqlcmd at $SQLCMD_CONTAINER_SQLCMD inside Docker container '$SQLCMD_CONTAINER'." >&2
+            exit 1
+        fi
+
+        return
+    fi
+
+    if ! command -v sqlcmd >/dev/null 2>&1; then
+        echo "sqlcmd was not found in PATH. Install Microsoft sqlcmd, set SQLCMD_CONTAINER, or run the sqlserver Docker container." >&2
+        exit 1
+    fi
+}
+
+docker_cmd() {
+    MSYS_NO_PATHCONV=1 docker "$@"
+}
+
+run_sqlcmd() {
+    if [[ -n "$SQLCMD_CONTAINER" ]]; then
+        docker_cmd exec "$SQLCMD_CONTAINER" "$SQLCMD_CONTAINER_SQLCMD" "$@"
+        return
+    fi
+
+    sqlcmd "$@"
+}
+
+load_connection_string() {
+    if [[ ! -f "$APPSETTINGS" ]]; then
+        echo "Could not find appsettings file: $APPSETTINGS" >&2
+        exit 1
+    fi
+
+    CONNECTION_STRING="$(sed -nE 's/^[[:space:]]*"SqlServer"[[:space:]]*:[[:space:]]*"([^"]+)".*$/\1/p' "$APPSETTINGS" | head -n 1)"
+
+    if [[ -z "$CONNECTION_STRING" ]]; then
+        echo "Could not read ConnectionStrings:SqlServer from $APPSETTINGS" >&2
+        exit 1
+    fi
+
+    SERVER="$(connection_value server || true)"
+    DATABASE="$(connection_value database || true)"
+    USER_ID="$(connection_value userid || true)"
+    PASSWORD="$(connection_value password || true)"
+    ENCRYPT="$(connection_value encrypt || true)"
+    TRUST_SERVER_CERTIFICATE="$(connection_value trustservercertificate || true)"
+
+    if [[ -z "$SERVER" || -z "$DATABASE" || -z "$USER_ID" || -z "$PASSWORD" ]]; then
+        echo "The SqlServer connection string must include Server, Database, User Id, and Password." >&2
+        exit 1
+    fi
+
+    SQLCMD_BASE=(-S "$SERVER" -U "$USER_ID" -P "$PASSWORD" -b)
+
+    if [[ -n "$SQLCMD_CONTAINER" && "$(printf '%s' "$TRUST_SERVER_CERTIFICATE" | tr '[:upper:]' '[:lower:]')" == "true" ]]; then
+        SQLCMD_BASE+=(-C)
+    elif [[ "$(printf '%s' "$ENCRYPT" | tr '[:upper:]' '[:lower:]')" == "true" ]]; then
+        SQLCMD_BASE+=(-N)
+
+        if [[ "$(printf '%s' "$TRUST_SERVER_CERTIFICATE" | tr '[:upper:]' '[:lower:]')" == "true" ]]; then
+            SQLCMD_BASE+=(-C)
+        fi
+    fi
+}
+
+ensure_database() {
+    local database_sql
+    database_sql="$(sql_literal "$DATABASE")"
+
+    run_master_query "
+IF DB_ID(N'$database_sql') IS NULL
+BEGIN
+    DECLARE @createDatabaseSql NVARCHAR(MAX) = N'CREATE DATABASE ' + QUOTENAME(N'$database_sql');
+    EXEC sys.sp_executesql @createDatabaseSql;
+END;
+"
+}
+
+ensure_migration_table() {
+    run_db_query "
+IF OBJECT_ID(N'dbo.__SchemaMigrations', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[__SchemaMigrations]
+    (
+        [MigrationId] NVARCHAR(150) NOT NULL,
+        [AppliedAt] DATETIME2(7) NOT NULL
+            CONSTRAINT [DF___SchemaMigrations_AppliedAt] DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT [PK___SchemaMigrations] PRIMARY KEY CLUSTERED ([MigrationId] ASC)
+    );
+END;
+"
+}
+
+validate_migration_id() {
+    local migration_id="$1"
+
+    if [[ ! "$migration_id" =~ ^[0-9]{13}_[A-Za-z0-9_]+$ ]]; then
+        echo "Invalid migration id '$migration_id'. Expected {yyyyMMdd}{XXXXX}_{customMigrationName}." >&2
+        exit 1
+    fi
+}
+
+applied_migration_ids() {
+    run_db_scalar "SET NOCOUNT ON; SELECT [MigrationId] FROM [dbo].[__SchemaMigrations] ORDER BY [AppliedAt] DESC, [MigrationId] DESC;"
+}
+
+is_applied() {
+    local migration_id="$1"
+    local migration_id_sql result
+    migration_id_sql="$(sql_literal "$migration_id")"
+    result="$(run_db_scalar "SET NOCOUNT ON; IF EXISTS (SELECT 1 FROM [dbo].[__SchemaMigrations] WHERE [MigrationId] = N'$migration_id_sql') SELECT 1 ELSE SELECT 0;" | tr -d '[:space:]')"
+
+    [[ "$result" == "1" ]]
+}
+
+record_applied() {
+    local migration_id="$1"
+    local migration_id_sql
+    migration_id_sql="$(sql_literal "$migration_id")"
+
+    run_db_query "INSERT INTO [dbo].[__SchemaMigrations] ([MigrationId]) VALUES (N'$migration_id_sql');"
+}
+
+record_rolled_back() {
+    local migration_id="$1"
+    local migration_id_sql
+    migration_id_sql="$(sql_literal "$migration_id")"
+
+    run_db_query "DELETE FROM [dbo].[__SchemaMigrations] WHERE [MigrationId] = N'$migration_id_sql';"
+}
+
+apply_up() {
+    shopt -s nullglob
+    local files=("$MIGRATIONS_DIR"/*.up.sql)
+    shopt -u nullglob
+
+    if (( ${#files[@]} == 0 )); then
+        echo "No up migrations found in $MIGRATIONS_DIR"
+        return
+    fi
+
+    for file in "${files[@]}"; do
+        local filename migration_id
+        filename="$(basename "$file")"
+        migration_id="${filename%.up.sql}"
+        validate_migration_id "$migration_id"
+
+        if is_applied "$migration_id"; then
+            echo "Already applied: $migration_id"
+            continue
+        fi
+
+        echo "Applying: $migration_id"
+        run_db_file "$file"
+        record_applied "$migration_id"
+    done
+}
+
+apply_down() {
+    mapfile -t applied_ids < <(applied_migration_ids | sed '/^[[:space:]]*$/d')
+
+    if (( ${#applied_ids[@]} == 0 )); then
+        echo "No applied migrations found."
+        return
+    fi
+
+    if [[ -n "$TARGET_MIGRATION" ]]; then
+        local target_found=false
+
+        for migration_id in "${applied_ids[@]}"; do
+            if [[ "$migration_id" == "$TARGET_MIGRATION" ]]; then
+                target_found=true
+                break
+            fi
+        done
+
+        if [[ "$target_found" == false ]]; then
+            echo "Migration '$TARGET_MIGRATION' is not applied." >&2
+            exit 1
+        fi
+    fi
+
+    for migration_id in "${applied_ids[@]}"; do
+        validate_migration_id "$migration_id"
+
+        local down_file="$MIGRATIONS_DIR/$migration_id.down.sql"
+        if [[ ! -f "$down_file" ]]; then
+            echo "Missing down migration file: $down_file" >&2
+            exit 1
+        fi
+
+        echo "Rolling back: $migration_id"
+        run_db_file "$down_file"
+        record_rolled_back "$migration_id"
+
+        if [[ -z "$TARGET_MIGRATION" || "$migration_id" == "$TARGET_MIGRATION" ]]; then
+            return
+        fi
+    done
+}
+
+print_status() {
+    shopt -s nullglob
+    local files=("$MIGRATIONS_DIR"/*.up.sql)
+    shopt -u nullglob
+
+    if (( ${#files[@]} == 0 )); then
+        echo "No up migrations found in $MIGRATIONS_DIR"
+        return
+    fi
+
+    for file in "${files[@]}"; do
+        local filename migration_id status
+        filename="$(basename "$file")"
+        migration_id="${filename%.up.sql}"
+        validate_migration_id "$migration_id"
+
+        if is_applied "$migration_id"; then
+            status="applied"
+        else
+            status="pending"
+        fi
+
+        printf '%-12s %s\n' "$status" "$migration_id"
+    done
+}
+
+case "$COMMAND" in
+    up|down|status)
+        ;;
+    -h|--help|help)
+        usage
+        exit 0
+        ;;
+    *)
+        usage >&2
+        exit 1
+        ;;
+esac
+
+ensure_sqlcmd
+load_connection_string
+ensure_database
+ensure_migration_table
+
+case "$COMMAND" in
+    up)
+        apply_up
+        ;;
+    down)
+        if [[ -n "$TARGET_MIGRATION" ]]; then
+            validate_migration_id "$TARGET_MIGRATION"
+        fi
+        apply_down
+        ;;
+    status)
+        print_status
+        ;;
+esac

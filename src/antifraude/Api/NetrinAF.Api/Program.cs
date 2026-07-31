@@ -9,7 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddApplicationServices();
+builder.Services.AddApplicationServices(builder.Configuration["AppConfiguration:AppAssemblyName"]!);
 //builder.Services.AddInfraServices();
 builder.AddHealthCheckConfiguration();
 builder.AddSerilogConfiguration();

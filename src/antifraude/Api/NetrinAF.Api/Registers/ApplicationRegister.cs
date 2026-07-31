@@ -8,13 +8,13 @@ namespace NetrinAF.Api.Registers
 {
     internal static class ApplicationRegister
     {
-        internal static void AddApplicationServices(this IServiceCollection services)
+        internal static void AddApplicationServices(this IServiceCollection services, string applicationName)
         {
             services.AddScoped<CorrelationId>();
             services.AddScoped<IdempotencyKey>();
 
             Assembly assemblyApplication = AppDomain.CurrentDomain.GetAssemblies()
-                        .FirstOrDefault(a => a.GetName().Name.Equals("NetrinAF.Application", StringComparison.OrdinalIgnoreCase))!;
+                        .FirstOrDefault(a => a.GetName().Name.Equals(applicationName, StringComparison.OrdinalIgnoreCase))!;
 
             services.Scan(scan => scan.FromAssemblies(assemblyApplication)
             .AddClasses(classes => classes.AssignableTo(typeof(IQueryHandler<,>)), publicOnly: false)
@@ -26,7 +26,6 @@ namespace NetrinAF.Api.Registers
             );
             //Attached with non-generic overloads
             services.Decorate(typeof(IQueryHandler<,>), typeof(LoggingDecorator.QueryHandler<,>));
-            //services.Decorate(typeof(ICommandHandler<,>), typeof(LoggingDecorator.CommandHandler<,>));
             services.Decorate(typeof(ICommandHandler<>), typeof(LoggingDecorator.CommandHandler<>));
 
         }
