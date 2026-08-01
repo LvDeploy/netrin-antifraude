@@ -1,4 +1,5 @@
-﻿using NetrinAF.Application.Handlers.TransactionEventHandler;
+using NetrinAF.Application.EventHandlers.TransactionCreatedHandler;
+using NetrinAF.Application.Services.TransactionProcess;
 using NetrinAF.Domain.Bus;
 using NetrinAF.Domain.Events;
 
@@ -8,13 +9,15 @@ namespace AppHost.Registers
     {
         internal static void AddApplicationServices(this IServiceCollection services)
         {
-            services.AddTransient<IEventHandler<TransactionEvent>, TransactionEventHandler>();
+            services.AddTransient<TransactionCreatedHandler>();
+            services.AddTransient<IEventHandler<TransactionCreatedEvent>, TransactionCreatedHandler>();
+            services.AddScoped<ITransactionProcessService, TransactionProcessService>();
         }
 
         internal static void UseApplicationServices(this IApplicationBuilder app)
         {
             var eventBus = app.ApplicationServices.GetRequiredService<IEventBus>();
-            eventBus.Subscribe<TransactionEvent, TransactionEventHandler>();
+            eventBus.Subscribe<TransactionCreatedEvent, TransactionCreatedHandler>();
         }
     }
 }

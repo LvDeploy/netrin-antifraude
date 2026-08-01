@@ -23,5 +23,12 @@ namespace NetrinAF.Infra.SQLDatabase.Repository
                 .Include(transaction => transaction.TrackLog)
                 .SingleOrDefaultAsync(transaction => transaction.Id == id, cancellationToken);
         }
+
+        public async Task<IEnumerable<Transaction?>> GetByIdEmpotency(string id)
+        {
+            return await _context.Transactions                
+                .AsSingleQuery()
+                .Where(transaction => transaction.IdEmpotency == id).ToListAsync();
+        }
     }
 }

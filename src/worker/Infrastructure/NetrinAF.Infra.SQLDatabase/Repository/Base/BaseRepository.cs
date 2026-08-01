@@ -11,6 +11,10 @@ namespace NetrinAF.Infra.SQLDatabase.Repository.Base
         {
             context.Add(entity);
         }
+        public void Update(T entity)
+        {
+            context.Update(entity);
+        }
 
         public async Task<T> Get(Guid id, CancellationToken cancellationToken)
         {

@@ -33,7 +33,7 @@ namespace NetrinAF.Application.Commands.CreateTransaction
             transactionHistoricRepository.Create(entityTransactionHistoric);
             await unitOfWork.CommitAsync(cancellationToken);
 
-            bus.Publish(new TransactionEvent(correlationId.Get(), entityTransaction.Id));
+            bus.Publish(new TransactionCreatedEvent(correlationId.Get(), entityTransaction.Id, idempotencyKey.Get()));
 
             return ResponseBuilder.Success(entityTransaction.Id);
         }

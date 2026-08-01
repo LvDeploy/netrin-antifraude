@@ -1,11 +1,17 @@
-﻿using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Net.Mime;
+using System.Reflection;
+using System.Text.Json;
 
 namespace AppHost.Configurations
 {
     [ExcludeFromCodeCoverage]
     internal static class HealthCheckConfiguration
     {
+        private const string BaseUrl = "netrin-af-worker";
         private const string HEALTHCHECKPATH = "health-check";
 
         internal static void AddHealthCheckConfiguration(this WebApplicationBuilder builder)
@@ -16,7 +22,7 @@ namespace AppHost.Configurations
 
         internal static void UseHealthCheckConfiguration(this WebApplication app)
         {
-            app.UseHealthChecks($"/{ApiInfo.BaseUrl}/{HEALTHCHECKPATH}",
+            app.UseHealthChecks($"/{BaseUrl}/{HEALTHCHECKPATH}",
                 new HealthCheckOptions()
                 {
                     ResponseWriter = async (context, report) =>
@@ -24,7 +30,7 @@ namespace AppHost.Configurations
                         var result = JsonSerializer.Serialize(
                             new
                             {
-                                apiVersion = ApiInfo.GetVersion(),
+                                apiVersion = GetVersion(),
                                 dotnet = Environment.Version.ToString(),
                                 statusApplication = report.Status.ToString(),
                                 healthChecks = report.Entries.Select(e => new
@@ -40,6 +46,13 @@ namespace AppHost.Configurations
                     }
                 }
             );
+        }
+
+        private static string GetVersion()
+        {
+            Assembly assembly = Assembly.GetExecutingAssembly();
+            FileVersionInfo fvi = FileVersionInfo.GetVersionInfo(assembly.Location);
+            return $"{fvi.FileMajorPart}.{fvi.FileMinorPart}.{fvi.FileBuildPart}";
         }
     }
 }

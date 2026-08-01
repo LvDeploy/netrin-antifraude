@@ -3,6 +3,8 @@ using AppHost.Registers;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddRabbitMqConfiguration();
+builder.Services.AddApplicationServices();
+builder.Services.AddInfraServices();
 builder.AddEFContextConfiguration();
 builder.AddHealthCheckConfiguration();
 builder.AddSerilogConfiguration();

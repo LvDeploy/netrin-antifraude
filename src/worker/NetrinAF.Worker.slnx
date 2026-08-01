@@ -1,6 +1,6 @@
 <Solution>
   <Folder Name="/AppHost/">
-    <Project Path="AppHost/AppHost.csproj" Id="a5368485-0419-4303-872a-9bb8f525edc5" />
+    <Project Path="AppHost/NetrinAF.Worker.AppHost.csproj" Id="a5368485-0419-4303-872a-9bb8f525edc5" />
   </Folder>
   <Folder Name="/Application/">
     <Project Path="Application/NetrinAF.Application/NetrinAF.Application.csproj" />

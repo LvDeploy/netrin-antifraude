@@ -10,7 +10,7 @@ namespace AppHost.Configurations
     {
         internal static void AddRabbitMqConfiguration(this WebApplicationBuilder builder)
         {
-            RabbitMqSettings options = builder.Configuration.GetSection(nameof(RabbitMqSettings)).Get<RabbitMqSettings>()!;
+            RabbitMqSettings options = builder.Configuration.GetSection(nameof(RabbitMqSettings)).Get<RabbitMqSettings>() ?? new RabbitMqSettings();
             builder.Services.AddSingleton(options);
 
             builder.Services.AddSingleton<IConnectionFactory>(sp =>

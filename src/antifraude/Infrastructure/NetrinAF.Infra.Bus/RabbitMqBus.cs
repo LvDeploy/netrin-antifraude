@@ -9,7 +9,7 @@ namespace NetrinAF.Infra.Bus
     public sealed class RabbitMqBus : IEventBus
     {
         private const string DefaultMainQueueName = "transaction.processing-queue";
-        private const string DefaultMainRoutingKey = "transaction.proccess";
+        private const string DefaultMainRoutingKey = "transaction.process";
 
         private readonly Dictionary<string, List<Type>> _handlers;
         private readonly List<Type> _eventTypes;

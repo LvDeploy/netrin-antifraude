@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using NetrinAF.Domain.Bus;
 using NetrinAF.Domain.Events.Base;
 using RabbitMQ.Client;
@@ -8,19 +8,26 @@ using System.Text.Json;
 
 namespace NetrinAF.Infra.Bus
 {
-    public sealed class RabbitMqBus : IEventBus
+    public sealed class RabbitMqBus : IEventBus, IDisposable
     {
+        private const string DefaultMainExchange = "main.exchange";
         private const string DefaultMainQueueName = "transaction.processing-queue";
-        private const string DefaultMainRoutingKey = "transaction.proccess";
+        private const string DefaultMainRoutingKey = "transaction.process";
+        private const string DefaultDlqName = "transaction.dead-letter-queue";
+        private const string DefaultDlqRoutingKey = "transaction.failed";
 
         private readonly Dictionary<string, List<Type>> _handlers;
-        private readonly List<Type> _eventTypes;
+        private readonly Dictionary<string, Type> _eventTypes;
         private readonly RabbitMqSettings _settings;
         private readonly IConnectionFactory _factory;
         private readonly IServiceScopeFactory _serviceScopeFactory;
+        private IConnection? _connection;
+        private IModel? _channel;
+        private bool _isConsuming;
+
         public RabbitMqBus(RabbitMqSettings settings, IConnectionFactory factory, IServiceScopeFactory serviceScopeFactory)
         {
-            _eventTypes = new List<Type>();
+            _eventTypes = new Dictionary<string, Type>();
             _handlers = new Dictionary<string, List<Type>>();
             _settings = settings;
             _factory = factory;
@@ -31,41 +38,57 @@ namespace NetrinAF.Infra.Bus
             where T : Event
             where H : IEventHandler<T>
         {
-            var eventName = typeof(T).Name;
-
+            string routingKey = _settings.MainRoutingKey ?? DefaultMainRoutingKey;
             var handlerType = typeof(H);
 
-            if (!_eventTypes.Contains(typeof(T)))
+            _eventTypes.TryAdd(routingKey, typeof(T));
+
+            if (!_handlers.ContainsKey(routingKey))
             {
-                _eventTypes.Add(typeof(T));
+                _handlers.Add(routingKey, new List<Type>());
             }
 
-            if (!_handlers.ContainsKey(eventName))
+            if (_handlers[routingKey].Contains(handlerType))
             {
-                _handlers.Add(eventName, new List<Type>());
+                throw new ArgumentException($"O handler {handlerType.Name} ja foi registrado no evento {routingKey}.");
             }
 
-            if (_handlers[eventName].Any(s => s.GetType() == handlerType))
-            {
-                throw new ArgumentException($"O handler {handlerType.Name} já foi registrado no evento {eventName}.");
-            }
-
-            _handlers[eventName].Add(handlerType);
-
-            StartBasicConsume<T>();
+            _handlers[routingKey].Add(handlerType);
+            StartBasicConsume(routingKey);
         }
 
-        private void StartBasicConsume<T>() where T : Event
+        private void StartBasicConsume(string routingKey)
         {
-            using var connection = _factory.CreateConnection();
-            using var channel = connection.CreateModel();
+            if (_isConsuming)
+            {
+                return;
+            }
 
-            var eventName = typeof(T).Name;
-            channel.QueueDeclare(eventName, true, false, false);
-            var consumer = new AsyncEventingBasicConsumer(channel);
+            _connection = _factory.CreateConnection();
+            _channel = _connection.CreateModel();
+
+            string mainExchange = _settings.MainExchange ?? DefaultMainExchange;
+            string mainQueueName = _settings.MainQueueName ?? DefaultMainQueueName;
+            string dlqName = _settings.DlqName ?? DefaultDlqName;
+            string dlqRoutingKey = _settings.DlqRoutingKey ?? DefaultDlqRoutingKey;
+
+            var mainQueueArgs = new Dictionary<string, object>
+            {
+                { "x-dead-letter-exchange", mainExchange },
+                { "x-dead-letter-routing-key", dlqRoutingKey }
+            };
+
+            _channel.ExchangeDeclare(mainExchange, ExchangeType.Direct, durable: true);
+            _channel.QueueDeclare(dlqName, durable: true, exclusive: false, autoDelete: false);
+            _channel.QueueBind(dlqName, mainExchange, dlqRoutingKey);
+            _channel.QueueDeclare(mainQueueName, durable: true, exclusive: false, autoDelete: false, arguments: mainQueueArgs);
+            _channel.QueueBind(mainQueueName, mainExchange, routingKey);
+
+            var consumer = new AsyncEventingBasicConsumer(_channel);
             consumer.Received += Consumer_Resolve;
 
-            channel.BasicConsume(eventName, false, consumer);
+            _channel.BasicConsume(mainQueueName, autoAck: false, consumer);
+            _isConsuming = true;
         }
 
         private async Task Consumer_Resolve(object sender, BasicDeliverEventArgs @event)
@@ -77,42 +100,41 @@ namespace NetrinAF.Infra.Bus
 
             try
             {
-                // Simulate application business logic processing
                 Console.WriteLine($"Processing message: {message}");
                 await ProcessEvent(eventName, message);
 
-                // If successful:
                 consumer.Model.BasicAck(deliveryTag: @event.DeliveryTag, multiple: false);
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error encountered: {ex.Message}. Moving to DLQ.");
-
-                // CRITICAL: Negative Acknowledge with requeue set to FALSE sends it to the DLX
                 consumer.Model.BasicNack(deliveryTag: @event.DeliveryTag, multiple: false, requeue: false);
             }
         }
 
         private async Task ProcessEvent(string eventName, string message)
         {
-            if (_handlers.ContainsKey(eventName))
+            if (!_handlers.TryGetValue(eventName, out var subscriptions) ||
+                !_eventTypes.TryGetValue(eventName, out var eventType))
             {
-                using (var scope = _serviceScopeFactory.CreateScope())
-                {
-                    var subcriptions = _handlers[eventName];
-                    foreach (var item in subcriptions)
-                    {
-                        var handler = scope.ServiceProvider.GetService(subscription);
-                        if (item != null)
-                        {
-                            var handlerType = _eventTypes.SingleOrDefault(x => x.Name == eventName);
-                            var eventData = JsonSerializer.Deserialize(message, handlerType!);
-                            var receiver = typeof(IEventHandler<>).MakeGenericType(handlerType!);
-                            await (Task)receiver.GetMethod("Handle")!.Invoke(handler, new object[] { eventData! })!;
-                        }
-                    }
-                }
+                return;
             }
+
+            using var scope = _serviceScopeFactory.CreateScope();
+
+            foreach (var subscription in subscriptions)
+            {
+                var handler = scope.ServiceProvider.GetRequiredService(subscription);
+                var eventData = JsonSerializer.Deserialize(message, eventType);
+                var receiver = typeof(IEventHandler<>).MakeGenericType(eventType);
+                await (Task)receiver.GetMethod("Handler")!.Invoke(handler, new object[] { eventData! })!;
+            }
+        }
+
+        public void Dispose()
+        {
+            _channel?.Dispose();
+            _connection?.Dispose();
         }
     }
 }

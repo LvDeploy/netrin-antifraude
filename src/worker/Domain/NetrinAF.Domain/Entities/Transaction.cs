@@ -26,5 +26,15 @@ namespace NetrinAF.Domain.Entities
                 idEmpotency: idEmpotency,
                 createdAt: DateTime.Now);
         }
+
+        public void CheckTransaction()
+        {
+            Status = Value > 100 ? TransactionStatus.APPROVED : TransactionStatus.REJECTED;
+        }
+
+        public void Reject()
+        {
+            Status = TransactionStatus.REJECTED;
+        }
     }
 }
