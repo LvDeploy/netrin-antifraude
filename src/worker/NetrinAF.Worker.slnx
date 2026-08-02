@@ -12,4 +12,7 @@
     <Project Path="Infrastructure/NetrinAF.Infra.Bus/NetrinAF.Infra.Bus.csproj" />
     <Project Path="Infrastructure/NetrinAF.Infra.SQLDatabase/NetrinAF.Infra.SQLDatabase.csproj" />
   </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="Tests/NetrinAF.Worker.Test/NetrinAF.Worker.Test.csproj" Id="ff203352-5cab-4ea9-a75a-72e744a583ed" />
+  </Folder>
 </Solution>
