@@ -9,6 +9,8 @@ namespace NetrinAF.Api.Configurations
 
         public static void AddSerilogConfiguration(this WebApplicationBuilder builder)
         {
+            builder.Logging.ClearProviders();
+
             IConfigurationBuilder _configuration = new ConfigurationBuilder()
                 .AddJsonFile(path: $"appsettings.json", optional: false, reloadOnChange: true)
                 .AddJsonFile(path: $"appsettings.{Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")}.json", optional: true);
@@ -22,7 +24,7 @@ namespace NetrinAF.Api.Configurations
                 .WriteTo.Console()
                 .CreateLogger();
 
-            builder.Host.UseSerilog(Log.Logger);
+            builder.Logging.AddSerilog(Log.Logger, dispose: true);
         }
     }
 }
