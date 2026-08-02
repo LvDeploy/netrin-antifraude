@@ -22,7 +22,8 @@ namespace AppHost.Configurations
                 .WriteTo.Console()
                 .CreateLogger();
 
-            builder.Host.UseSerilog(Log.Logger);
+            builder.Logging.ClearProviders();
+            builder.Logging.AddSerilog(Log.Logger, dispose: true);
         }
     }
 }

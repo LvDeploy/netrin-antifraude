@@ -2,7 +2,6 @@
 using NetrinAF.Domain.Contracts.Repositories;
 using NetrinAF.Domain.Contracts.UnitOfWork;
 using NetrinAF.Domain.Entities;
-using Serilog.Core;
 
 namespace NetrinAF.Application.Services.TransactionProcess
 {
@@ -16,18 +15,28 @@ namespace NetrinAF.Application.Services.TransactionProcess
         {
             try
             {
-                logger.LogInformation($"Inicio de processamento -> correlationid: {correlationId}, transactionId: {transactionId}, idempotencyKey: {idempotencyKey} ");
+                logger.LogInformation(
+                    "Transaction processing started. CorrelationId: {CorrelationId}; TransactionId: {TransactionId}; IdempotencyKey: {IdempotencyKey}",
+                    correlationId,
+                    transactionId,
+                    idempotencyKey);
                 var entityTransactions = await transactionRepository.GetByIdEmpotency(idempotencyKey);
                 var entity = entityTransactions?.FirstOrDefault(x => x.Id == transactionId);
                 if (entityTransactions is null || entity is null)
                 {
-                    logger.LogError($"transação não encontrada, IdEmpotency: {idempotencyKey}");
+                    logger.LogError(
+                        "Transaction was not found. IdempotencyKey: {IdempotencyKey}; TransactionId: {TransactionId}",
+                        idempotencyKey,
+                        transactionId);
                     return;
                 }
 
                 if (entity.Status != Domain.Enums.TransactionStatus.REVIEW)
                 {
-                    logger.LogError($"transacao já processada");
+                    logger.LogError(
+                        "Transaction was already processed. TransactionId: {TransactionId}; Status: {TransactionStatus}",
+                        transactionId,
+                        entity.Status);
                     return;
                 }
                 var failedTransaction = entityTransactions.ToList();
@@ -48,11 +57,19 @@ namespace NetrinAF.Application.Services.TransactionProcess
                 }
 
                 await unitOfWork.CommitAsync(default);
-                logger.LogInformation($"Processamento concluído -> correlationid: {correlationId}, transactionId: {transactionId}");
+                logger.LogInformation(
+                    "Transaction processing completed. CorrelationId: {CorrelationId}; TransactionId: {TransactionId}; TransactionStatus: {TransactionStatus}",
+                    correlationId,
+                    transactionId,
+                    entity.Status);
             }
             catch (Exception ex) 
             {
-                logger.LogError($"Erro no processamento -> correlationid: {correlationId}, transactionId: {transactionId}");
+                logger.LogError(
+                    ex,
+                    "Transaction processing failed. CorrelationId: {CorrelationId}; TransactionId: {TransactionId}",
+                    correlationId,
+                    transactionId);
                 throw;
             }
         }

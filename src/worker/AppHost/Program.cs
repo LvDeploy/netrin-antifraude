@@ -8,6 +8,8 @@ builder.Services.AddInfraServices();
 builder.AddEFContextConfiguration();
 builder.AddHealthCheckConfiguration();
 builder.AddSerilogConfiguration();
+builder.AddOpenTelemetryConfiguration();
+builder.AddOpenTelemetryLoggingConfiguration();
 // Add services to the container.
 
 var app = builder.Build();
@@ -16,5 +18,6 @@ var app = builder.Build();
 
 app.UseHttpsRedirection();
 app.UseApplicationServices();
+app.UseHealthCheckConfiguration();
 app.Run();
 

@@ -3,7 +3,6 @@ using NetrinAF.Application.Abstractions.Command;
 using NetrinAF.Application.Abstractions.Handler;
 using NetrinAF.Application.Abstractions.Query;
 using NetrinAF.Application.Abstractions.Response;
-using System.Text.Json;
 
 namespace NetrinAF.Application.Abstractions.Behavior
 {
@@ -18,17 +17,27 @@ namespace NetrinAF.Application.Abstractions.Behavior
             {
                 string requestName = typeof(TCommand).Name;
 
-                logger.LogInformation($"Processing request {requestName}");
+                logger.LogInformation("Processing request {RequestName}", requestName);
 
                 BaseResponse<TResponse> result = await innerHandler.Handle(command, cancellationToken);
 
                 if (result.IsSuccess)
                 {
-                    logger.LogInformation($"Completed request {requestName}", JsonSerializer.Serialize(result));
+                    logger.LogInformation(
+                        "Completed request {RequestName}. IsSuccess: {IsSuccess}; ErrorType: {ErrorType}; Message: {Message}",
+                        requestName,
+                        result.IsSuccess,
+                        result.ErrorType,
+                        result.Message);
                 }
                 else
                 {
-                    logger.LogInformation($"Completed request {requestName} with errors", JsonSerializer.Serialize(result.Errors));
+                    logger.LogInformation(
+                        "Completed request {RequestName}. IsSuccess: {IsSuccess}; ErrorType: {ErrorType}; ErrorCount: {ErrorCount}",
+                        requestName,
+                        result.IsSuccess,
+                        result.ErrorType,
+                        result.Errors?.Count() ?? 0);
                 }
 
                 return result;
@@ -44,17 +53,27 @@ namespace NetrinAF.Application.Abstractions.Behavior
             {
                 string requestName = typeof(TCommand).Name;
 
-                logger.LogInformation($"Processing request {requestName}");
+                logger.LogInformation("Processing request {RequestName}", requestName);
 
                 BaseResponse<Guid> result = await innerHandler.Handle(command, cancellationToken);
 
                 if (result.IsSuccess)
                 {
-                    logger.LogInformation($"Completed request {requestName}", JsonSerializer.Serialize(result));
+                    logger.LogInformation(
+                        "Completed request {RequestName}. IsSuccess: {IsSuccess}; ErrorType: {ErrorType}; Message: {Message}",
+                        requestName,
+                        result.IsSuccess,
+                        result.ErrorType,
+                        result.Message);
                 }
                 else
                 {
-                    logger.LogInformation($"Completed request {requestName} with errors", JsonSerializer.Serialize(result.Errors));
+                    logger.LogInformation(
+                        "Completed request {RequestName}. IsSuccess: {IsSuccess}; ErrorType: {ErrorType}; ErrorCount: {ErrorCount}",
+                        requestName,
+                        result.IsSuccess,
+                        result.ErrorType,
+                        result.Errors?.Count() ?? 0);
                 }
 
                 return result;
@@ -70,17 +89,27 @@ namespace NetrinAF.Application.Abstractions.Behavior
             {
                 string requestName = typeof(TQuery).Name;
 
-                logger.LogInformation($"Processing request {requestName}");
+                logger.LogInformation("Processing request {RequestName}", requestName);
 
                 BaseResponse<TResponse> result = await innerHandler.Handle(query, cancellationToken);
 
                 if(result.IsSuccess)
                 {
-                    logger.LogInformation($"Completed request {requestName}", JsonSerializer.Serialize(result));
+                    logger.LogInformation(
+                        "Completed request {RequestName}. IsSuccess: {IsSuccess}; ErrorType: {ErrorType}; Message: {Message}",
+                        requestName,
+                        result.IsSuccess,
+                        result.ErrorType,
+                        result.Message);
                 }
                 else
                 {
-                    logger.LogInformation($"Completed request {requestName} with errors", JsonSerializer.Serialize(result.Errors));
+                    logger.LogInformation(
+                        "Completed request {RequestName}. IsSuccess: {IsSuccess}; ErrorType: {ErrorType}; ErrorCount: {ErrorCount}",
+                        requestName,
+                        result.IsSuccess,
+                        result.ErrorType,
+                        result.Errors?.Count() ?? 0);
                 }
 
                 return result;

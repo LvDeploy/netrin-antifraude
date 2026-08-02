@@ -18,6 +18,8 @@ builder.AddSwaggerConfiguration();
 builder.AddRabbitMqConfiguration();
 builder.AddEFContextConfiguration();
 builder.AddResiliencePipelineConfiguration();
+builder.AddOpenTelemetryConfiguration();
+builder.AddOpenTelemetryLoggingConfiguration();
 
 var app = builder.Build();
 

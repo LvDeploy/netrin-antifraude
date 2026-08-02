@@ -10,6 +10,7 @@ namespace NetrinAF.Infra.Bus
     {
         private const string DefaultMainQueueName = "transaction.processing-queue";
         private const string DefaultMainRoutingKey = "transaction.process";
+        private const int DefaultRetryTtlMilliseconds = 60000;
 
         private readonly Dictionary<string, List<Type>> _handlers;
         private readonly List<Type> _eventTypes;
@@ -33,11 +34,18 @@ namespace NetrinAF.Infra.Bus
             string mainExchange = _settings.MainExchange!;
             string mainQueueName = _settings.MainQueueName ?? DefaultMainQueueName;
             string mainRoutingKey = _settings.MainRoutingKey ?? DefaultMainRoutingKey;
+            int retryTtlMilliseconds = _settings.RetryTtlMilliseconds ?? DefaultRetryTtlMilliseconds;
 
             var mainQueueArgs = new Dictionary<string, object>
             {
                 { "x-dead-letter-exchange", mainExchange },
                 { "x-dead-letter-routing-key", _settings.DlqRoutingKey! }
+            };
+            var dlqArgs = new Dictionary<string, object>
+            {
+                { "x-message-ttl", retryTtlMilliseconds },
+                { "x-dead-letter-exchange", mainExchange },
+                { "x-dead-letter-routing-key", mainRoutingKey }
             };
 
             if (!DoesExchangeExist(connection, mainExchange))
@@ -47,7 +55,12 @@ namespace NetrinAF.Infra.Bus
 
             if (!DoesQueueExist(connection, _settings.DlqName!))
             {
-                channel.QueueDeclare(_settings.DlqName!, durable: true, exclusive: false, autoDelete: false);
+                channel.QueueDeclare(
+                    queue: _settings.DlqName!,
+                    durable: true,
+                    exclusive: false,
+                    autoDelete: false,
+                    arguments: dlqArgs);
                 channel.QueueBind(_settings.DlqName!, mainExchange, _settings.DlqRoutingKey!);
             }
             if (!DoesQueueExist(connection, mainQueueName))
