@@ -15,6 +15,8 @@ namespace NetrinAF.Infra.Bus
         private const string DefaultMainRoutingKey = "transaction.process";
         private const string DefaultDlqName = "transaction.dead-letter-queue";
         private const string DefaultDlqRoutingKey = "transaction.failed";
+        private const int DefaultRetryTtlMilliseconds = 60000;
+        private const long DefaultMaxRetryAttempts = 1;
 
         private readonly Dictionary<string, List<Type>> _handlers;
         private readonly Dictionary<string, Type> _eventTypes;
@@ -71,15 +73,22 @@ namespace NetrinAF.Infra.Bus
             string mainQueueName = _settings.MainQueueName ?? DefaultMainQueueName;
             string dlqName = _settings.DlqName ?? DefaultDlqName;
             string dlqRoutingKey = _settings.DlqRoutingKey ?? DefaultDlqRoutingKey;
+            int retryTtlMilliseconds = _settings.RetryTtlMilliseconds ?? DefaultRetryTtlMilliseconds;
 
             var mainQueueArgs = new Dictionary<string, object>
             {
                 { "x-dead-letter-exchange", mainExchange },
                 { "x-dead-letter-routing-key", dlqRoutingKey }
             };
+            var dlqArgs = new Dictionary<string, object>
+            {
+                { "x-message-ttl", retryTtlMilliseconds },
+                { "x-dead-letter-exchange", mainExchange },
+                { "x-dead-letter-routing-key", routingKey }
+            };
 
             _channel.ExchangeDeclare(mainExchange, ExchangeType.Direct, durable: true);
-            _channel.QueueDeclare(dlqName, durable: true, exclusive: false, autoDelete: false);
+            _channel.QueueDeclare(dlqName, durable: true, exclusive: false, autoDelete: false, arguments: dlqArgs);
             _channel.QueueBind(dlqName, mainExchange, dlqRoutingKey);
             _channel.QueueDeclare(mainQueueName, durable: true, exclusive: false, autoDelete: false, arguments: mainQueueArgs);
             _channel.QueueBind(mainQueueName, mainExchange, routingKey);
@@ -107,7 +116,17 @@ namespace NetrinAF.Infra.Bus
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error encountered: {ex.Message}. Moving to DLQ.");
+                long retryCount = GetQueueDeathCount(@event.BasicProperties.Headers, _settings.DlqName ?? DefaultDlqName);
+                long maxRetryAttempts = _settings.MaxRetryAttempts ?? DefaultMaxRetryAttempts;
+
+                if (retryCount >= maxRetryAttempts)
+                {
+                    Console.WriteLine($"Error encountered after {retryCount} retry attempt(s): {ex.Message}. Message acknowledged and will not be reprocessed.");
+                    consumer.Model.BasicAck(deliveryTag: @event.DeliveryTag, multiple: false);
+                    return;
+                }
+
+                Console.WriteLine($"Error encountered: {ex.Message}. Moving to DLQ for retry.");
                 consumer.Model.BasicNack(deliveryTag: @event.DeliveryTag, multiple: false, requeue: false);
             }
         }
@@ -129,6 +148,43 @@ namespace NetrinAF.Infra.Bus
                 var receiver = typeof(IEventHandler<>).MakeGenericType(eventType);
                 await (Task)receiver.GetMethod("Handler")!.Invoke(handler, new object[] { eventData! })!;
             }
+        }
+
+        private static long GetQueueDeathCount(IDictionary<string, object>? headers, string queueName)
+        {
+            if (headers is null ||
+                !headers.TryGetValue("x-death", out var xDeathHeader) ||
+                xDeathHeader is not IEnumerable<object> deaths)
+            {
+                return 0;
+            }
+
+            foreach (var death in deaths)
+            {
+                if (death is not IDictionary<string, object> deathData ||
+                    !deathData.TryGetValue("queue", out var queueValue) ||
+                    !IsQueueName(queueValue, queueName))
+                {
+                    continue;
+                }
+
+                if (deathData.TryGetValue("count", out var countValue))
+                {
+                    return Convert.ToInt64(countValue);
+                }
+            }
+
+            return 0;
+        }
+
+        private static bool IsQueueName(object queueValue, string queueName)
+        {
+            return queueValue switch
+            {
+                byte[] bytes => Encoding.UTF8.GetString(bytes) == queueName,
+                string value => value == queueName,
+                _ => queueValue.ToString() == queueName
+            };
         }
 
         public void Dispose()

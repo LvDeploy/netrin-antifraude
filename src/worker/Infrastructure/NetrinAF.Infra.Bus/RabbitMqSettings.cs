@@ -10,5 +10,7 @@
         public string? MainExchange { get; set; }
         public string? MainQueueName { get; set; }
         public string? MainRoutingKey { get; set; }
+        public int? RetryTtlMilliseconds { get; set; }
+        public long? MaxRetryAttempts { get; set; }
     }
 }

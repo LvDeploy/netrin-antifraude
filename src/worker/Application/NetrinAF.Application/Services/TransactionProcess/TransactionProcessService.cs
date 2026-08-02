@@ -48,11 +48,11 @@ namespace NetrinAF.Application.Services.TransactionProcess
                 }
 
                 await unitOfWork.CommitAsync(default);
-                logger.LogInformation($"Processamento concluído -> correlationid: {correlationId}, transactionId: {idempotencyKey}");
+                logger.LogInformation($"Processamento concluído -> correlationid: {correlationId}, transactionId: {transactionId}");
             }
             catch (Exception ex) 
             {
-                logger.LogError($"Erro no processamento -> correlationid: {correlationId}, transactionId: {idempotencyKey}");
+                logger.LogError($"Erro no processamento -> correlationid: {correlationId}, transactionId: {transactionId}");
                 throw;
             }
         }
