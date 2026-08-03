@@ -1,4 +1,4 @@
-# netrin-antifraude
+# Netrin-antifraude
 
 Projeto criado para implementar módulo de avaliação antifraude
 
@@ -17,6 +17,15 @@ As aplicações citadas utilizam .NET 10, Entity Framework Core, Polly para resi
 Podendo ser executada via Docker.
 
 > Atualmente, a API e o worker utilizam uma opção de observabilidade via **OpenTelemetry** conectado a um dashboard do `Aspire`. Os dados são descartados quando essa aplicação é encerrada.
+
+## Componentes
+
+### Diagrama
+
+O diagrama abaixo mostra a interação dos componentes do sistema:
+
+![System Architecture](assets/diagrama-componentes.png)
+
 
 ## Arquitetura
 
@@ -97,6 +106,17 @@ Contém testes unitários com:
 - Moq;
 - Builder Pattern para criação dos objetos utilizados nos testes.
 
+## Endpoints de Health Check 
+
+**NetrinAF API**
+```text
+http://localhost:7144/netrin-af/health-check
+```
+**NetrinAF Worker**
+```text
+http://localhost:7115/netrin-af-worker/health-check
+```
+
 ## IdempotencyKey 
 
 Cada requisição é processada pelo middleware que recebe um identificador de Idempotência no header:
@@ -137,10 +157,15 @@ Com o aspire-dashboard rodando, para visualizar a telemetria:
 
 ## Workflow da Solução
 
+### Diagrama do fluxo principal
+
+O Diagrama do fluxo principal do sistema:
+
+![System Architecture](assets/diagrama-fluxo.png)
+
 ### 1. Persistir a transação em estado inicial e enviar o Evento de transação criada
 
-A transação é enviada via endpoint /transactions e persistida com estado inicial de REVIEW.
-Um registro no histórico da transação também é persistido. Após persistir um evento é gerado.
+A transação é enviada via endpoint do tipo POST, após validada é persistida com estado inicial de REVIEW junto com um registro no histórico da transação. Um evento é gerado no fim deste processo.
 
 ```http
 POST /netrin-af/v1/transactions
@@ -203,7 +228,7 @@ Estratégia de resiliência via RabbitMq para Retry (Exception):
 
 ### 3. Consultar a transação
 
-A transação é consultada via endpoint /transactions/{id} .
+A transação pode ser consultada via endpoint GET /transactions passando o Id da transação como .
 
 ```http
 GET /netrin-af/v1/transactions/{transactionId}
@@ -218,4 +243,4 @@ Status possíveis:
 
 - `200 OK`: requisição criada;
 - `404 Not Found`: dados inválidos;
-- `500 InternalServerError`: mensagem com erro inesperado;
+- `500 InternalServerError`: mensagem de erro inesperado;
