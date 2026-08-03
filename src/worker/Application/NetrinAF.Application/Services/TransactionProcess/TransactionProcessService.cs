@@ -39,8 +39,25 @@ namespace NetrinAF.Application.Services.TransactionProcess
                         entity.Status);
                     return;
                 }
-                var failedTransaction = entityTransactions.ToList();
-                failedTransaction.Remove(entity);
+
+
+                if (entityTransactions.Any(x => x.Status == Domain.Enums.TransactionStatus.APPROVED || x.Status == Domain.Enums.TransactionStatus.REJECTED))
+                { 
+                    foreach (TransactionHistoric historic in entity.TrackLog.ToList())
+                    {
+                            transactionHistoricRepository.Delete(historic);
+                    }
+
+                    transactionRepository.Delete(entity);
+                    
+                    await unitOfWork.CommitAsync(default);
+                    logger.LogInformation(
+                       "Transaction removed because was duplicated. CorrelationId: {CorrelationId}; TransactionId: {TransactionId}; IdempotencyKey: {IdempotencyKey}",
+                      correlationId,
+                      transactionId,
+                      idempotencyKey);
+                    return;
+                }
 
                 entity.CheckTransaction();
                 var entityTransactionHistoric = TransactionHistoric.CreateNew(entity, 
@@ -48,17 +65,7 @@ namespace NetrinAF.Application.Services.TransactionProcess
                     entity.Status == Domain.Enums.TransactionStatus.APPROVED ? "Transação Aceita" : "Transação Rejeitada");
                 transactionRepository.Update(entity);
                 transactionHistoricRepository.Create(entityTransactionHistoric);
-
-                foreach (Transaction item in failedTransaction.OfType<Transaction>())
-                {
-                    foreach (TransactionHistoric historic in item.TrackLog.ToList())
-                    {
-                        transactionHistoricRepository.Delete(historic);
-                    }
-
-                    transactionRepository.Delete(item);
-                }
-
+                              
                 await unitOfWork.CommitAsync(default);
                 logger.LogInformation(
                     "Transaction processing completed. CorrelationId: {CorrelationId}; TransactionId: {TransactionId}; TransactionStatus: {TransactionStatus}",

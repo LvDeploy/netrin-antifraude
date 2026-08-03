@@ -96,7 +96,7 @@ A chave de idempotência será persistida no SQL Server e compartilhada entre to
 
 4. Após ler a mensagem o Worker aciona o serviço de verificação.
 
-5. O Serviço verifica se a mensagem já foi processada.
+5. O Serviço verifica se a mensagem tem um registro persistido na base.
 
 6. Ignora o processamento se o registro já estiver sido processado.
 
@@ -104,7 +104,7 @@ A chave de idempotência será persistida no SQL Server e compartilhada entre to
 
 - Obtém o último registro para processar.
 
-- Deleta os demais registros duplicados.
+- Deleta o registro caso já tenha outro com mesmo `Idempotency-Key` que foi processado.
 
 8. Caso contrário:
 
