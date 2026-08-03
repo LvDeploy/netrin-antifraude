@@ -296,8 +296,9 @@ Os seguintes documentos de ADR foram anexados ao projeto:
 | ADR-003 | Implementação de Idempotência | Accepted |
 
 Estão localizados em:
-
+```text
 docs/
-  /ADR-001-Rabbitmq.md
-  /ADR-002-Sqlserver.md
-  /ADR-003-Idempotencia.md
+├── ADR-001-Rabbitmq.md
+├── ADR-002-Sqlserver.md
+├── ADR-003-Idempotencia.md
+```
