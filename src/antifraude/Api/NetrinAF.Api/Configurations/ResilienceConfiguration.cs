@@ -1,6 +1,7 @@
 ﻿using Microsoft.Data.SqlClient;
 using NetrinAF.Api.Endpoints;
 using NetrinAF.Application.Abstractions.Response;
+using NetrinAF.Domain.ValueObjects;
 using Polly;
 using Polly.Fallback;
 using Polly.Retry;
@@ -16,7 +17,7 @@ namespace NetrinAF.Api.Configurations
                 {
                     pipelineBuilder.AddFallback(new FallbackStrategyOptions<BaseResponse<Guid>>
                     {
-                        FallbackAction = _ => Outcome.FromResultAsValueTask<BaseResponse<Guid>>(new BaseResponse<Guid>() { Data = Guid.Empty })
+                        FallbackAction = _ => Outcome.FromResultAsValueTask<BaseResponse<Guid>>(new BaseResponse<Guid>() { Data = Guid.Empty, IsSuccess = false, Errors = Enumerable.Empty<ErrorData>() })
                     });
                     pipelineBuilder.AddRetry(new RetryStrategyOptions<BaseResponse<Guid>>
                     {

@@ -6,6 +6,7 @@ namespace NetrinAF.Domain.Contracts.Repositories.Base
     {
         void Create(T entity);
         void Update(T entity);
+        void Delete(T entity);
         Task<T> Get(Guid id, CancellationToken cancellationToken);
     }
 }

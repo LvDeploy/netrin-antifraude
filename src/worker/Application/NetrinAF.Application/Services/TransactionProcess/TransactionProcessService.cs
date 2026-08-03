@@ -49,11 +49,14 @@ namespace NetrinAF.Application.Services.TransactionProcess
                 transactionRepository.Update(entity);
                 transactionHistoricRepository.Create(entityTransactionHistoric);
 
-                foreach(var item in failedTransaction)
+                foreach (Transaction item in failedTransaction.OfType<Transaction>())
                 {
-                    item!.Reject();
-                    var itemTransactionHistoric = TransactionHistoric.CreateNew(entity, entity.IdEmpotency, "Transação Rejeitada por duplicidade");
-                    transactionHistoricRepository.Create(entityTransactionHistoric);
+                    foreach (TransactionHistoric historic in item.TrackLog.ToList())
+                    {
+                        transactionHistoricRepository.Delete(historic);
+                    }
+
+                    transactionRepository.Delete(item);
                 }
 
                 await unitOfWork.CommitAsync(default);

@@ -9,33 +9,41 @@ namespace NetrinAF.Application.Query.GetTransaction
     public sealed class GetTransactionQueryHandler(ITransactionRepository transactionRepository)
         : IQueryHandler<GetTransactionQuery, GetTransactionQueryResponse>
     {
+
         public async Task<BaseResponse<GetTransactionQueryResponse>> Handle(GetTransactionQuery query, CancellationToken cancellationToken)
         {
-            if (!query.IsValid())
+            try
             {
-                return ResponseBuilder.Failure<GetTransactionQueryResponse>(query.ValidationResult.Errors.Select(x => ErrorData.Set(x.ErrorMessage)), ErrorType.BadRequest);
+                if (!query.IsValid())
+                {
+                    return ResponseBuilder.Failure<GetTransactionQueryResponse>(query.ValidationResult.Errors.Select(x => ErrorData.Set(x.ErrorMessage)), ErrorType.BadRequest);
+                }
+
+                var transaction = await transactionRepository.GetWithTrackLog(query.Id, cancellationToken);
+
+                if (transaction is null)
+                {
+                    return ResponseBuilder.Failure<GetTransactionQueryResponse>(ErrorData.Set("Transacao nao encontrada"), ErrorType.NotFound);
+                }
+
+                var trackLog = transaction.TrackLog
+                    .OrderByDescending(historic => historic.EventTime)
+                    .Select(historic => new GetTransactionQueryDetailResponse(
+                        historic.EventTime,
+                        historic.Status,
+                        historic.StatusMessage));
+
+                return ResponseBuilder.Success(new GetTransactionQueryResponse(
+                    transaction.Id,
+                    transaction.Status,
+                    transaction.Value,
+                    transaction.CreatedAt,
+                    trackLog));
             }
-
-            var transaction = await transactionRepository.GetWithTrackLog(query.Id, cancellationToken);
-
-            if (transaction is null)
+            catch (Exception ex) 
             {
-                return ResponseBuilder.Failure<GetTransactionQueryResponse>(ErrorData.Set("Transacao nao encontrada"), ErrorType.NotFound);
+                return ResponseBuilder.Failure<GetTransactionQueryResponse>(ErrorData.Set("Ocorreu um erro ao consultar"), ErrorType.InternalError);
             }
-
-            var trackLog = transaction.TrackLog
-                .OrderByDescending(historic => historic.EventTime)
-                .Select(historic => new GetTransactionQueryDetailResponse(
-                    historic.EventTime,
-                    historic.Status,
-                    historic.StatusMessage));
-
-            return ResponseBuilder.Success(new GetTransactionQueryResponse(
-                transaction.Id,
-                transaction.Status,
-                transaction.Value,
-                transaction.CreatedAt,
-                trackLog));
         }
     }
 }

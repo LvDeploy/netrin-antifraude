@@ -9,6 +9,7 @@ public sealed class TransactionBuilder
     private decimal _value = 100m;
     private string _idempotencyKey = "idempotency-key";
     private TransactionStatus _status = TransactionStatus.REVIEW;
+    private readonly List<string> _trackLogMessages = [];
 
     public TransactionBuilder WithId(Guid id)
     {
@@ -34,6 +35,12 @@ public sealed class TransactionBuilder
         return this;
     }
 
+    public TransactionBuilder WithTrackLog(string statusMessage)
+    {
+        _trackLogMessages.Add(statusMessage);
+        return this;
+    }
+
     public Transaction Build()
     {
         Transaction transaction = Transaction.CreateNew(_value, _idempotencyKey);
@@ -46,6 +53,11 @@ public sealed class TransactionBuilder
         else if (_status == TransactionStatus.REJECTED)
         {
             transaction.Reject();
+        }
+
+        foreach (string statusMessage in _trackLogMessages)
+        {
+            transaction.TrackLog.Add(TransactionHistoric.CreateNew(transaction, _idempotencyKey, statusMessage));
         }
 
         return transaction;

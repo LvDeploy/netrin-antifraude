@@ -21,21 +21,28 @@ namespace NetrinAF.Application.Commands.CreateTransaction
     {
         public async Task<BaseResponse<Guid>> Handle(CreateTransactionCommand command, CancellationToken cancellationToken)
         {
-            if (!command.IsValid())
+            try
             {
-                return ResponseBuilder.Failure<Guid>(command.ValidationResult.Errors.Select(x => ErrorData.Set(x.ErrorMessage)), ErrorType.BadRequest);
+                if (!command.IsValid())
+                {
+                    return ResponseBuilder.Failure<Guid>(command.ValidationResult.Errors.Select(x => ErrorData.Set(x.ErrorMessage)), ErrorType.BadRequest);
+                }
+
+                var entityTransaction = Transaction.CreateNew(command.Value, idempotencyKey.Get());
+                var entityTransactionHistoric = TransactionHistoric.CreateNew(entityTransaction, idempotencyKey.Get(), "Transação Solicitada");
+
+                transactionRepository.Create(entityTransaction);
+                transactionHistoricRepository.Create(entityTransactionHistoric);
+                await unitOfWork.CommitAsync(cancellationToken);
+
+                bus.Publish(new TransactionCreatedEvent(correlationId.Get(), entityTransaction.Id, idempotencyKey.Get()));
+
+                return ResponseBuilder.Success(entityTransaction.Id);
             }
-
-            var entityTransaction = Transaction.CreateNew(command.Value, idempotencyKey.Get());
-            var entityTransactionHistoric = TransactionHistoric.CreateNew(entityTransaction, idempotencyKey.Get(), "Transação Solicitada");
-
-            transactionRepository.Create(entityTransaction);
-            transactionHistoricRepository.Create(entityTransactionHistoric);
-            await unitOfWork.CommitAsync(cancellationToken);
-
-            bus.Publish(new TransactionCreatedEvent(correlationId.Get(), entityTransaction.Id, idempotencyKey.Get()));
-
-            return ResponseBuilder.Success(entityTransaction.Id);
+            catch (Exception ex) 
+            {
+                throw;
+            }
         }
     }
 }

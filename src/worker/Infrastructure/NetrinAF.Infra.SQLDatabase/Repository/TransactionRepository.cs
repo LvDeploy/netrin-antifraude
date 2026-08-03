@@ -28,7 +28,8 @@ namespace NetrinAF.Infra.SQLDatabase.Repository
         {
             return await _context.Transactions                
                 .AsSingleQuery()
-                .Where(transaction => transaction.IdEmpotency == id).OrderBy(x => x.CreatedAt).ToListAsync();
+                .Include(transaction => transaction.TrackLog)
+                .Where(transaction => transaction.IdEmpotency == id).OrderByDescending(x => x.CreatedAt).ToListAsync();
         }
     }
 }

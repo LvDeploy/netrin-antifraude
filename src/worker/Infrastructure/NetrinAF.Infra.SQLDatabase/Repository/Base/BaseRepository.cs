@@ -16,6 +16,11 @@ namespace NetrinAF.Infra.SQLDatabase.Repository.Base
             context.Update(entity);
         }
 
+        public void Delete(T entity)
+        {
+            context.Remove(entity);
+        }
+
         public async Task<T> Get(Guid id, CancellationToken cancellationToken)
         {
             return await context.Set<T>().SingleOrDefaultAsync(x => x.Id == id);

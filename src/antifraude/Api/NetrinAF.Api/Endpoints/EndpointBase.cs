@@ -14,7 +14,7 @@ namespace NetrinAF.Api.Endpoints
                 return Results.Ok(resultSuccess);
             }
 
-            ResultFailure resultFailure = new(correlationId, [.. result.Errors!.Select(x => x.Detail)!]);
+            ResultFailure resultFailure = new(correlationId, [.. result.Errors?.Select(x => x.Detail)!]);
 
             return result.ErrorType switch
             {
