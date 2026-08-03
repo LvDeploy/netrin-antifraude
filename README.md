@@ -133,6 +133,34 @@ http://localhost:7144/netrin-af/health-check
 http://localhost:7115/netrin-af-worker/health-check
 ```
 
+## Executar todo o ecossistema com Docker Compose
+
+O Compose inicializa RabbitMQ, SQL Server, Aspire Dashboard, API e Worker. O
+serviço `migrations` aguarda o SQL Server, cria o banco `Netrin` quando ele ainda
+não existe e aplica somente as migrations pendentes antes de iniciar a API e o
+Worker.
+
+```bash
+docker compose up --build
+```
+
+Serviços expostos localmente:
+
+- API: `http://localhost:7144`
+- Worker health check: `http://localhost:7115/netrin-af-worker/health-check`
+- RabbitMQ Management: `http://localhost:15672` (admin / admin123)
+- Aspire Dashboard: `http://localhost:18888`
+- SQL Server: `localhost,1433` (sa / mtmu53r!)
+
+Para recriar o SQL Server do zero, remova apenas o volume persistente e suba a
+stack novamente; o serviço de migrations recriará¡ o banco e o schema:
+
+```bash
+docker compose down
+docker volume rm netrin-af_sqlserver-data
+docker compose up --build
+```
+
 ## IdempotencyKey 
 
 Cada requisição é processada pelo middleware que recebe um identificador de Idempotência no header:

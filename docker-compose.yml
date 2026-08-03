@@ -1,0 +1,114 @@
+name: netrin-af
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    hostname: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin123
+    ports:
+      - "5672:5672"
+      - "5673:5673"
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  aspire-dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:latest
+    ports:
+      - "18888:18888"
+      - "4317:18889"
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: mtmu53r!
+      MSSQL_PID: Developer
+    cap_add:
+      - SYS_PTRACE
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q \"SELECT 1\" >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  migrations:
+    # The SQL Server 2022 image includes sqlcmd at /opt/mssql-tools18/bin/sqlcmd.
+    # Reusing it avoids relying on a separate mssql-tools image tag.
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      SQL_SERVER: sqlserver
+      SQL_DATABASE: Netrin
+      SQL_USER: sa
+      SQL_PASSWORD: mtmu53r!
+    volumes:
+      - ./src/migrations:/migrations:ro
+      - ./docker/migrate.sh:/usr/local/bin/migrate:ro
+    entrypoint: ["/bin/bash", "/usr/local/bin/migrate"]
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    restart: "no"
+
+  antifraud:
+    image: netrin-af-antifraud:local
+    build:
+      context: .
+      dockerfile: docker/antifraud.Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__SqlServer: Server=sqlserver,1433;Database=Netrin;User Id=sa;Password=mtmu53r!;TrustServerCertificate=True
+      RabbitMqSettings__DefaultHost: rabbitmq
+      RabbitMqSettings__UserName: admin
+      RabbitMqSettings__Password: admin123
+      OtlpExporter__Endpoint: http://aspire-dashboard:18889
+    ports:
+      - "7144:8080"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      aspire-dashboard:
+        condition: service_started
+      migrations:
+        condition: service_completed_successfully
+
+  worker:
+    image: netrin-af-worker:local
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__SqlServer: Server=sqlserver,1433;Database=Netrin;User Id=sa;Password=mtmu53r!;TrustServerCertificate=True
+      RabbitMqSettings__DefaultHost: rabbitmq
+      RabbitMqSettings__UserName: admin
+      RabbitMqSettings__Password: admin123
+      OtlpExporter__Endpoint: http://aspire-dashboard:18889
+    ports:
+      - "7115:8080"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      aspire-dashboard:
+        condition: service_started
+      migrations:
+        condition: service_completed_successfully
+
+volumes:
+  rabbitmq-data:
+  sqlserver-data:
