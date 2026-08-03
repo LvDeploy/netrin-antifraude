@@ -172,7 +172,7 @@ http://localhost:4317
 Com o aspire-dashboard rodando, para visualizar a telemetria:
 
 1. acesse `http://localhost:18888/`;
-2. Caso precise de um token para acessar, no powershell, digite `docker logs aspire-dashboard`;
+2. Caso precise de um token para acessar, no powershell, digite `docker logs netrin-af-aspire-dashboard-1`;
 3. Verifique o conteúdo na linha **Login URL**, como no exemplo abaixo;
 ```text
  Login URL:  http://localhost:18888/login?t=916229ec70b1a7ff50555ce5a0159434
