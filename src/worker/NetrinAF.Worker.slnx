@@ -1,0 +1,18 @@
+<Solution>
+  <Folder Name="/AppHost/">
+    <Project Path="AppHost/NetrinAF.Worker.AppHost.csproj" Id="a5368485-0419-4303-872a-9bb8f525edc5" />
+  </Folder>
+  <Folder Name="/Application/">
+    <Project Path="Application/NetrinAF.Application/NetrinAF.Application.csproj" />
+  </Folder>
+  <Folder Name="/Domain/">
+    <Project Path="Domain/NetrinAF.Domain/NetrinAF.Domain.csproj" />
+  </Folder>
+  <Folder Name="/Infrastructure/">
+    <Project Path="Infrastructure/NetrinAF.Infra.Bus/NetrinAF.Infra.Bus.csproj" />
+    <Project Path="Infrastructure/NetrinAF.Infra.SQLDatabase/NetrinAF.Infra.SQLDatabase.csproj" />
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="Tests/NetrinAF.Worker.Test/NetrinAF.Worker.Test.csproj" Id="ff203352-5cab-4ea9-a75a-72e744a583ed" />
+  </Folder>
+</Solution>
