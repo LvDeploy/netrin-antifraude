@@ -26,6 +26,22 @@ O diagrama abaixo mostra a interação dos componentes do sistema:
 
 ![System Architecture](assets/diagrama-componentes.png)
 
+## Architecture Decision Records
+
+Os seguintes documentos de ADR foram anexados ao projeto:
+
+| ADR | Title | Status |
+|------|-------|--------|
+| ADR-001 | Implementação do Rabbitmq | Accepted |
+| ADR-002 | Adoção do SQL como banco de dados | Accepted |
+| ADR-003 | Implementação de Idempotência | Accepted |
+
+Estão localizados em:
+
+docs/
+├── ADR-001-Rabbitmq.md
+├── ADR-002-Sqlserver.md
+├── ADR-003-Idempotencia.md
 
 ## Arquitetura
 

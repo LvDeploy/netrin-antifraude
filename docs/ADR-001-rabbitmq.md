@@ -4,7 +4,7 @@
 
 **Status:** Aceito
 
-**Date:** 01-08-2026
+**Data:** 01-08-2026
 
 ### Context
 
