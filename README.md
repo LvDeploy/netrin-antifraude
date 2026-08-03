@@ -14,9 +14,9 @@ Ela permite:
 O **NetrinAF Worker** é uma serviço que recebe transações via mensageria para realizar uma avaliação de antifraude.
 
 As aplicações citadas utilizam .NET 10, Entity Framework Core, Polly para resiliência, FluentValidation, Mensageria via RabbitMq e banco de dados via SQL Server.
-Podendo ser executada via Docker.
+Podendo ser executada pelo Docker.
 
-> Atualmente, a API e o worker utilizam uma opção de observabilidade via **OpenTelemetry** conectado a um dashboard do `Aspire`. Os dados são descartados quando essa aplicação é encerrada.
+> Atualmente, a API e o worker utilizam uma opção de observabilidade com **OpenTelemetry** conectado a um dashboard do `Aspire`. Os dados são descartados quando essa aplicação é encerrada.
 
 ## Componentes
 
@@ -24,28 +24,11 @@ Podendo ser executada via Docker.
 
 O diagrama abaixo mostra a interação dos componentes do sistema:
 
-![System Architecture](assets/diagrama-componentes.png)
-
-## Architecture Decision Records
-
-Os seguintes documentos de ADR foram anexados ao projeto:
-
-| ADR | Title | Status |
-|------|-------|--------|
-| ADR-001 | Implementação do Rabbitmq | Accepted |
-| ADR-002 | Adoção do SQL como banco de dados | Accepted |
-| ADR-003 | Implementação de Idempotência | Accepted |
-
-Estão localizados em:
-
-docs/
-├── ADR-001-Rabbitmq.md
-├── ADR-002-Sqlserver.md
-├── ADR-003-Idempotencia.md
+![System Components](assets/diagrama-componentes.png)
 
 ## Arquitetura
 
-Ambos os projetos segue os princípios de **Clean Architecture**, separando responsabilidades em camadas:
+Ambos os projetos seguem os princípios de **Clean Architecture**, separando responsabilidades em camadas:
 - **NetrinAF API** - 
 ```text
 src/antifraude/
@@ -173,7 +156,6 @@ O cliente pode enviar esse header. Caso ele não seja informado em uma ação qu
 
 O mesmo valor é:
 
-- adicionado ao header da resposta;
 - incluído no banco de dados como dado adicional ao registro de transação;
 - utilizado para relacionar dados de requisições que serão persistidos em sistemas distribuidos.
 
@@ -198,6 +180,21 @@ Com o aspire-dashboard rodando, para visualizar a telemetria:
 4. Obtenha o valor do parâmetro `t` na url informada para ser usado no login do Aspire;
 5. Ao logar terá acesso aos traces, logs e métricas.
 
+## Correlation ID
+
+Cada requisição passa por um middleware que recebe um identificador de correlação no header:
+
+```http
+X-Correlation-Id: 9f13e931-1785-4a65-b5b2-8631ecadfcfe
+```
+
+A cada requisição API gera um novo GUID.
+
+O mesmo valor é:
+
+- adicionado ao header da resposta;
+- incluído no corpo das respostas normais de sucesso ou falha;
+- utilizado para relacionar requisições, respostas e registros de diagnóstico.
 
 ## Workflow da Solução
 
@@ -205,7 +202,7 @@ Com o aspire-dashboard rodando, para visualizar a telemetria:
 
 O Diagrama do fluxo principal do sistema:
 
-![System Architecture](assets/diagrama-fluxo.png)
+![System Flow](assets/diagrama-fluxo.png)
 
 ### 1. Persistir a transação em estado inicial e enviar o Evento de transação criada
 
@@ -237,7 +234,7 @@ Estratégia de resiliência via Polly para Retry (SQL Exception):
 - Retry de 2 tentantivas 
 - Delay de 2 segundos
 - Backoff Exponencial (aumenta o delay por tentativa)
-> Tipo de backoff escolhido para dar tempo ao serviço externo se recuperar.
+> O Tipo de backoff foi escolhido para dar tempo ao serviço externo se recuperar.
 
 Estratégia de Fallback:
 
@@ -266,13 +263,12 @@ Estratégia para dedup:
 
 Estratégia de resiliência via RabbitMq para Retry (Exception):
 
-- Retry de 1 tentantivas 
-- Delay de 60 segundos
-> Caso o erro persista a mensagem fica armazenada na fila chamada de `transaction.dead-letter-queue`.
+- Retry de 1 tentantiva 
+- Tempo de expiração de 60 segundos por mensagem na fila `transaction.dead-letter-queue`
 
 ### 3. Consultar a transação
 
-A transação pode ser consultada via endpoint GET /transactions passando o Id da transação como .
+A transação pode ser consultada via endpoint GET /transactions passando o Id da transação.
 
 ```http
 GET /netrin-af/v1/transactions/{transactionId}
@@ -288,3 +284,20 @@ Status possíveis:
 - `200 OK`: requisição criada;
 - `404 Not Found`: dados inválidos;
 - `500 InternalServerError`: mensagem de erro inesperado;
+
+## Architecture Decision Records
+
+Os seguintes documentos de ADR foram anexados ao projeto:
+
+| ADR | Title | Status |
+|------|-------|--------|
+| ADR-001 | Implementação do Rabbitmq | Accepted |
+| ADR-002 | Adoção do SQL como banco de dados | Accepted |
+| ADR-003 | Implementação de Idempotência | Accepted |
+
+Estão localizados em:
+
+docs/
+├── ADR-001-Rabbitmq.md
+├── ADR-002-Sqlserver.md
+├── ADR-003-Idempotencia.md

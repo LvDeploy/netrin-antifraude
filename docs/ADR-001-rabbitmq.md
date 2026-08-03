@@ -9,7 +9,7 @@
 ### Context
 
 A ausência de um recurso de mensageria dificulta a escalabilidade da aplicação, 
-pois acaba criando alto acoplamento entre serviços que implementam regras de negócio, e um risco maior de falhas críticas que geram interrupções, devido ao fato de uma única aplicação ser 
+pois acaba criando alto acoplamento entre serviços que implementam regras de negócio, e um risco maior de falhas críticas que geram interrupções devido ao fato de uma única aplicação ser 
 responsável por todo processo.
 
 O recurso mensageria é uma forma de entregar performace e manter a solução escalável para encorporar 
@@ -25,7 +25,7 @@ A solução usará:
 - Filas duráveis
 - Mensagens persistentes
 - Dead Letter Queues (DLQ) para erros imprevistos
-- Politicas de retentativa com backoff em minutos configurado na aplicação
+- Políticas de retentativa com backoff em minutos configurado na aplicação
 - Modo de garantia (At Least Once) com reconhecimento ativo (ACK/NACK)
 
 Cada serviço de consumo de evento terá sua própria fila.
@@ -99,6 +99,4 @@ Cada serviço de consumo de evento terá sua própria fila.
 
 3. Configurar chave para fila de mensagens de erro (DLQ).
 
-4. Estabelecer tempo de retry para reprocessar registros na fila de mensagens de erro.
-
-5. Estabelecer um número máximo de tentativas para reprocessar baseando-se no atributo `x-death`.
+4. Estabelecer um número máximo de tentativas para reprocessar baseando-se no atributo `x-death`.
