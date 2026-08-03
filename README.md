@@ -298,6 +298,6 @@ Os seguintes documentos de ADR foram anexados ao projeto:
 Estão localizados em:
 
 docs/
-├── ADR-001-Rabbitmq.md
-├── ADR-002-Sqlserver.md
-├── ADR-003-Idempotencia.md
+  /ADR-001-Rabbitmq.md
+  /ADR-002-Sqlserver.md
+  /ADR-003-Idempotencia.md
