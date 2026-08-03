@@ -13,19 +13,20 @@ namespace NetrinAF.Worker.Test.UnitTests.Services;
 public sealed class TransactionProcessServiceTests
 {
     [Fact]
-    public async Task Process_WithReviewTransaction_ApprovesTargetRemovesDuplicatesAndCommits()
+    public async Task Process_WithCompletedDuplicate_RemovesCurrentTransactionAndItsHistory()
     {
         const string idempotencyKey = "idempotency-key";
         var target = new TransactionBuilder()
             .WithValue(150m)
             .WithIdempotencyKey(idempotencyKey)
+            .WithTrackLog("Transaction requested")
             .Build();
         var duplicate = new TransactionBuilder()
             .WithValue(50m)
             .WithIdempotencyKey(idempotencyKey)
-            .WithTrackLog("Duplicate transaction requested")
+            .WithStatus(TransactionStatus.APPROVED)
             .Build();
-        TransactionHistoric duplicateHistoric = Assert.Single(duplicate.TrackLog);
+        TransactionHistoric targetHistoric = Assert.Single(target.TrackLog);
         var @event = new TransactionCreatedEventBuilder()
             .WithTransactionId(target.Id)
             .WithIdempotencyKey(idempotencyKey)
@@ -40,11 +41,12 @@ public sealed class TransactionProcessServiceTests
 
         await service.Process(@event.TransactionId, @event.IdempotencyKey, @event.CorrelationId);
 
-        Assert.Equal(TransactionStatus.APPROVED, target.Status);
-        transactionRepository.Verify(x => x.Update(target), Times.Once);
-        transactionRepository.Verify(x => x.Delete(duplicate), Times.Once);
-        historicRepository.Verify(x => x.Create(It.IsAny<TransactionHistoric>()), Times.Once);
-        historicRepository.Verify(x => x.Delete(duplicateHistoric), Times.Once);
+        Assert.Equal(TransactionStatus.REVIEW, target.Status);
+        transactionRepository.Verify(x => x.Update(It.IsAny<Transaction>()), Times.Never);
+        transactionRepository.Verify(x => x.Delete(target), Times.Once);
+        transactionRepository.Verify(x => x.Delete(duplicate), Times.Never);
+        historicRepository.Verify(x => x.Create(It.IsAny<TransactionHistoric>()), Times.Never);
+        historicRepository.Verify(x => x.Delete(targetHistoric), Times.Once);
         unitOfWork.Verify(x => x.CommitAsync(CancellationToken.None), Times.Once);
     }
 
