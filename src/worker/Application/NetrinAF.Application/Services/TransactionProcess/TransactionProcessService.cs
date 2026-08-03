@@ -31,7 +31,7 @@ namespace NetrinAF.Application.Services.TransactionProcess
                     return;
                 }
 
-                if (entity.Status != Domain.Enums.TransactionStatus.REVIEW)
+                if (entity.Status != Domain.Enums.TransactionStatus.REVIEW || entityTransactions.Any(x => x.Status == Domain.Enums.TransactionStatus.APPROVED || x.Status == Domain.Enums.TransactionStatus.REJECTED))
                 {
                     logger.LogError(
                         "Transaction was already processed. TransactionId: {TransactionId}; Status: {TransactionStatus}",
